@@ -4,7 +4,6 @@ import com.iljo.userserver.dto.EnterDto;
 import com.iljo.userserver.dto.EnterID;
 import com.iljo.userserver.jpa.EnterEntity;
 import com.iljo.userserver.jpa.EnterRepository;
-import com.iljo.userserver.vo.ResponseEnter;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -42,6 +41,13 @@ public class EnterServiceImpl implements EnterService{
         List<EnterEntity> enterEntityList = enterRepository.findAllByUserId(userId);
 
         return enterEntityList;
+    }
+
+    // 입력한 roomId가 들어있는 Enter테이블의 데이터들을 불러오는 메소드
+    @Override
+    public List<EnterEntity> getUserByRoomId(Long roomId) {
+        List<EnterEntity> enterEntity = enterRepository.findAllByRoomId(roomId);
+        return enterEntity;
     }
 
     // 방에서 나올 때 enter 테이블에서 값을 지우는 메소드

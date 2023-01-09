@@ -1,9 +1,18 @@
 server:
-  port: 8808
+  port: 0
+
+eureka:
+  instance:
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+  client:
+    service-url:
+      defaultZone: http://127.0.0.1:8761/eureka
+    fetch-registry: true
+    register-with-eureka: true
 
 spring:
   application:
-    name: user-server2
+    name: user
   #  rabbitmq :
   #    host : 127.0.0.1
   #    port : 5672

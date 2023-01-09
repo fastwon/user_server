@@ -1,12 +1,10 @@
 package com.iljo.userserver.controller;
 
 import com.iljo.userserver.dto.UserDto;
-import com.iljo.userserver.jpa.EnterEntity;
-import com.iljo.userserver.service.EnterService;
-import com.iljo.userserver.service.UserService;
-import com.iljo.userserver.vo.RequestUser;
-import com.iljo.userserver.vo.ResponseRoomId;
-import com.iljo.userserver.vo.ResponseUser;
+import com.iljo.userserver.feign.RoomClient;
+import com.iljo.userserver.jpa.*;
+import com.iljo.userserver.service.*;
+import com.iljo.userserver.vo.*;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
@@ -29,12 +27,22 @@ import java.util.List;
 public class UserController {
 
     UserService userService;
-
+    RoomClient roomClient;
+    EnterRepository enterRepository;
     EnterService enterService;
+    FavoriteService favoriteService;
+    FollowService followService;
+    RoomTagService roomTagService;
+
     @Autowired
-    public UserController(UserService userService, EnterService enterService) {
+    public UserController(UserService userService, RoomClient roomClient, EnterRepository enterRepository, EnterService enterService, FavoriteService favoriteService, FollowService followService, RoomTagService roomTagService) {
         this.userService = userService;
+        this.roomClient = roomClient;
+        this.enterRepository = enterRepository;
         this.enterService = enterService;
+        this.favoriteService = favoriteService;
+        this.followService = followService;
+        this.roomTagService = roomTagService;
     }
 
     /**
@@ -44,14 +52,11 @@ public class UserController {
     @Transactional
     public ResponseEntity<ResponseUser> createUser(@RequestBody RequestUser user) {
         ModelMapper mapper = new ModelMapper();
-        System.out.println(user instanceof Object);
+//        System.out.println(user instanceof Object);
         mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
 
         UserDto userDto = mapper.map(user, UserDto.class);
-        log.info(user.toString());
-        log.info(userDto.toString());
         UserDto userDto1 = userService.createUser(userDto);
-        log.info(userDto1.toString());
         ResponseUser responseUser = mapper.map(userDto1, ResponseUser.class);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(responseUser);
@@ -65,21 +70,53 @@ public class UserController {
     public ResponseEntity<ResponseUser> getUser(@PathVariable("userId") String userId){
         ModelMapper mapper = new ModelMapper();
 
-        List<EnterEntity> enterEntityList = enterService.getEnterByUserId(userId);
+        // enter에서 roomId 가져오기
+        List<EnterEntity> enterEntityList = enterRepository.findAllByUserId(userId);
 
-        List<ResponseRoomId> result = new ArrayList<>();
+        List<ResponseRoomId> roomIdList = new ArrayList<>();
+        enterEntityList.forEach(r -> {
+            ResponseRoomId room = roomClient.getRooms(r.getRoomId());
+            roomIdList.add(room);
+        });
 
-        // List에 받아온 데이터를 맵핑해서 넣어준다.
-        enterEntityList.forEach(v -> {
-            result.add(new ModelMapper().map(v, ResponseRoomId.class));
+        List<User_FavoriteEntity> userFavoriteEntities = favoriteService.getFavoriteByUserId(userId);
+        List<User_Follow_TagEntity> userFollowTagEntities = followService.getFollowByUserId(userId);
+        List<User_Room_TagEntity> userRoomTagEntities = roomTagService.getRoomTagByUserId(userId);
+
+        List<ResponseFavorite> responseFavorites = new ArrayList<>();
+        List<ResponseFollow> responseFollows = new ArrayList<>();
+        List<ResponseRoomTag> responseRoomTags = new ArrayList<>();
+
+        userFavoriteEntities.forEach(v -> {
+            responseFavorites.add(new ModelMapper().map(v, ResponseFavorite.class));
+        });
+
+        userFollowTagEntities.forEach(f -> {
+            responseFollows.add(new ModelMapper().map(f, ResponseFollow.class));
+        });
+
+        userRoomTagEntities.forEach(r -> {
+            responseRoomTags.add(new ModelMapper().map(r, ResponseRoomTag.class));
         });
 
         UserDto userDto = userService.getUserByUserId(userId);
 
         ResponseUser returnValue = mapper.map(userDto ,ResponseUser.class);
-        returnValue.setRooms(result);
+        returnValue.setRooms(roomIdList);
+        returnValue.setUserFavorites(responseFavorites);
+        returnValue.setUserFollows(responseFollows);
+        returnValue.setUserRoomTags(responseRoomTags);
 
+        return ResponseEntity.status(HttpStatus.OK).body(returnValue);
 
+    }
+
+    // room에게 전달해줄 user
+    @GetMapping("/{userId}/room")
+    public ResponseEntity<ResponseUser> getUserForRoom(@PathVariable("userId") String userId){
+        ModelMapper mapper = new ModelMapper();
+        UserDto userDto = userService.getUserByUserId(userId);
+        ResponseUser returnValue = mapper.map(userDto ,ResponseUser.class);
         return ResponseEntity.status(HttpStatus.OK).body(returnValue);
 
     }

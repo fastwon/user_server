@@ -12,5 +12,4 @@ public class ResponseEnter {
 
     private Long roomId;
 
-
 }
