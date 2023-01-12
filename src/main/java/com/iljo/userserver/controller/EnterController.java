@@ -21,6 +21,7 @@ import java.util.List;
 @Controller
 @Slf4j
 @RequestMapping("/user")
+@CrossOrigin("http://localhost:3000")
 public class EnterController {
 
     private EnterService enterService;
